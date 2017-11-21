@@ -1374,7 +1374,8 @@ int32_t TR::PPCSystemLinkage::buildArgs(TR::Node *callNode,
 
 
    bool isHelper = false;
-   if (callNode->getSymbolReference()->getReferenceNumber() == TR_PPCVectorLogDouble)
+   if (callNode->getSymbolReference()->getReferenceNumber() == TR_PPCVectorLogDouble ||
+       callNode->getSymbolReference()->getReferenceNumber() == TR_PPCFastMathLog)
       {
       isHelper = true;
       }
