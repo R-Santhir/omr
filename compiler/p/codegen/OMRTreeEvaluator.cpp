@@ -4075,6 +4075,44 @@ static inline void loadArrayCmpSources(TR::Node *node, TR::InstOpCode::Mnemonic 
       }
    }
 
+static TR::Register *inlineVectorizedArrayComp(TR::Node *node, TR::CodeGenerator *cg)
+{
+   TR::Register *src0Address = cg->evaluate(node->getChild(0));
+   TR::Register *src1Address = cg->evaluate(node->getChild(1));
+   TR::Register *lengthReg = cg->gprClobberEvaluate(node->getChild(2));
+
+   TR::Register *returnValue = cg->allocateRegister();
+
+   TR::RegisterDependencyConditions *deps = new (cg->trHeapMemory()) TR::RegisterDependencyConditions(7, 7, cg->trMemory());
+
+   addDependency(deps, returnValue, TR::RealRegister::gr3, TR_GPR, cg);
+   addDependency(deps, src0Address, TR::RealRegister::gr4, TR_GPR, cg);
+   addDependency(deps, src1Address, TR::RealRegister::gr5, TR_GPR, cg);
+   addDependency(deps, lengthReg, TR::RealRegister::gr6, TR_GPR, cg);
+
+   addDependency(deps, NULL, TR::RealRegister::cr0, TR_CCR, cg);
+
+   addDependency(deps, NULL, TR::RealRegister::gr7, TR_GPR, cg);
+   addDependency(deps, NULL, TR::RealRegister::gr8, TR_GPR, cg);
+
+   TR::TreeEvaluator::generateHelperBranchAndLinkInstruction(TR_PPCarrayCmpScalar, node, deps, cg);
+
+   node->setRegister(returnValue);
+
+   deps->stopUsingDepRegs(cg, returnValue);
+   cg->stopUsingRegister(src0Address);
+   cg->stopUsingRegister(src1Address);
+   cg->stopUsingRegister(lengthReg);
+
+   cg->decReferenceCount(node->getChild(1));
+   cg->decReferenceCount(node->getChild(2));
+   cg->decReferenceCount(node->getChild(3));
+
+   cg->machine()->setLinkRegisterKilled(true);
+
+   return returnValue;
+
+}
 
 static TR::Register *inlineArrayCmp(TR::Node *node, TR::CodeGenerator *cg)
    {
@@ -4313,7 +4351,8 @@ static TR::Register *inlineArrayCmp(TR::Node *node, TR::CodeGenerator *cg)
 TR::Register *OMR::Power::TreeEvaluator::arraycmpEvaluator(TR::Node *node, TR::CodeGenerator *cg)
    {
    TR::Compilation *comp = cg->comp();
-   return inlineArrayCmp(node, cg);
+   return inlineVectorizedArrayComp(node, cg);
+   //return inlineArrayCmp(node, cg);
    }
 
 bool OMR::Power::TreeEvaluator::stopUsingCopyReg(
